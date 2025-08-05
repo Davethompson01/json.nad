@@ -68,8 +68,19 @@ export const DomainForm = () => {
   } = useGitHub();
 
   const validateDomain = (value: string) => {
-    const domainRegex = /^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.nad$/;
-    return domainRegex.test(value);
+    // Allow both full domain names with .nad and just names
+    const fullDomainRegex = /^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.nad$/;
+    const nameOnlyRegex = /^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*$/;
+    
+    return fullDomainRegex.test(value) || nameOnlyRegex.test(value);
+  };
+
+  const normalizeDomain = (value: string): string => {
+    // If it doesn't end with .nad, add it
+    if (!value.endsWith('.nad')) {
+      return `${value}.nad`;
+    }
+    return value;
   };
 
   const handleDomainChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -112,30 +123,33 @@ export const DomainForm = () => {
     if (!domain || !isValid) {
       toast({
         title: "Invalid domain",
-        description: "Please enter a valid .nad domain",
+        description: "Please enter a valid domain name",
         variant: "destructive",
       });
       return;
     }
 
+    // Normalize the domain (add .nad if not present)
+    const normalizedDomain = normalizeDomain(domain);
+
     // Check if domain already exists
-    const domainExists = await checkDomain(domain);
+    const domainExists = await checkDomain(normalizedDomain);
     if (domainExists) {
       toast({
         title: "Domain already registered",
-        description: `${domain} is already registered in the system.`,
+        description: `${normalizedDomain} is already registered in the system.`,
         variant: "destructive",
       });
       return;
     }
 
     // Add domain to GitHub
-    const success = await addDomain(domain);
+    const success = await addDomain(normalizedDomain);
     
     if (success) {
       toast({
         title: "Domain registered successfully!",
-        description: `${domain} has been registered and saved to GitHub.`,
+        description: `${normalizedDomain} has been registered and saved to GitHub.`,
       });
       
       setDomain("");
@@ -161,7 +175,7 @@ export const DomainForm = () => {
               <Input
                 id="domain"
                 type="text"
-                placeholder="yourname.nad"
+                placeholder="yourname or yourname.nad"
                 value={domain}
                 onChange={handleDomainChange}
                 className="pr-10 bg-input/50 border-border/50 focus:border-primary focus:ring-primary/20"
@@ -180,7 +194,12 @@ export const DomainForm = () => {
             </div>
             {domain && !isValid && (
               <p className="text-xs text-destructive">
-                Domain must end with .nad and contain valid characters
+                Domain must contain valid characters (letters, numbers, hyphens)
+              </p>
+            )}
+            {domain && isValid && !domain.endsWith('.nad') && (
+              <p className="text-xs text-muted-foreground">
+                Will be registered as: {domain}.nad
               </p>
             )}
           </div>
